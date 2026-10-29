@@ -162,6 +162,10 @@ function calculateResult() {
   const topCount = Math.max(...topDomains.map((index) => strongPicks[index]));
   topDomains = topDomains.filter((index) => strongPicks[index] === topCount);
   const bestDomain = topDomains[0];
+  const rankedDomains = scores.map((score, index) => ({ score, index, strongPicks: strongPicks[index] }))
+    .sort((a, b) => b.score - a.score || b.strongPicks - a.strongPicks || a.index - b.index);
+  const runnerUpScore = Math.max(...scores.filter((_, index) => index !== bestDomain));
+  const lead = scores[bestDomain] - runnerUpScore;
   finalProfile = profiles[themeProfiles[bestDomain]];
   $("result-icon").textContent = finalProfile.icon;
   $("result-title").textContent = finalProfile.name;
@@ -195,7 +199,8 @@ function calculateResult() {
     fill.style.width = `${(scores[index] / 6) * 100}%`;
     track.append(fill);
     const note = document.createElement("p");
-    note.textContent = themeDescriptions[index];
+    const rank = rankedDomains.findIndex((entry) => entry.index === index) + 1;
+    note.textContent = `${themeDescriptions[index]} Rank ${rank}/4 · ${strongPicks[index]} high-weight pick${strongPicks[index] === 1 ? "" : "s"}.`;
     card.append(heading, track, note);
     scoreList.append(card);
   });
@@ -214,6 +219,53 @@ function calculateResult() {
     evidence.append(group, answer);
     evidenceList.append(evidence);
   }
+
+  const resultMapping = [
+    "Keeping ideas & ego separate → The Bridge Builder",
+    "Making room to revise → The Plot-Twist Pilot",
+    "Welcoming other viewpoints → The Curious Cartographer",
+    "Calibrating confidence → The Steady Compass"
+  ];
+  const tieRule = "Rank by raw theme total; break a tie using the number of 2-point selections; if still tied, use the earliest theme in the quiz order.";
+  const spec = [
+    ["Item structure", "12 single-choice scenarios; 4 themes; 3 scenarios per theme."],
+    ["Item key", "Each selected option carries a fixed, author-assigned weight of 0, 1, or 2. Options are randomized in display order; scenario order is fixed."],
+    ["Theme score", "Add the three selected option weights in that theme. Range: 0–6; no reverse-keyed items or missing-item adjustment."],
+    ["Ranking and tie-break", `${tieRule} The displayed lead is the top theme minus the next-highest theme (${lead === 0 ? "tied at 0 points" : `${lead} point${lead === 1 ? "" : "s"}`} ahead).`],
+    ["Profile mapping", resultMapping.join(" · ")],
+    ["Selected mapping", `${categories[bestDomain]} maps directly to ${finalProfile.name}. The overall sum across themes does not select the profile.`]
+  ];
+  const specNode = $("technical-spec");
+  specNode.replaceChildren();
+  spec.forEach(([label, value]) => {
+    const row = document.createElement("div");
+    row.className = "technical-spec-row";
+    const term = document.createElement("strong");
+    term.textContent = label;
+    const description = document.createElement("p");
+    description.textContent = value;
+    row.append(term, description);
+    specNode.append(row);
+  });
+
+  const logBody = $("item-log-body");
+  logBody.replaceChildren();
+  picks.forEach((pick, index) => {
+    const row = document.createElement("tr");
+    const cells = [
+      `${String(index + 1).padStart(2, "0")} · ${rounds[index].group}`,
+      categories[Math.floor(index / 3)],
+      `${rounds[index].choices[pick][1]} / 2`,
+      rounds[index].choices[pick][0]
+    ];
+    cells.forEach((text, cellIndex) => {
+      const cell = document.createElement(cellIndex === 0 ? "th" : "td");
+      if (cellIndex === 0) cell.scope = "row";
+      cell.textContent = text;
+      row.append(cell);
+    });
+    logBody.append(row);
+  });
   $("share-note").textContent = "";
   show(result);
 }
