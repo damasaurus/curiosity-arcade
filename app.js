@@ -69,6 +69,19 @@ const profiles = [
 ];
 
 const categories = ["Keeping ideas & ego separate", "Making room to revise", "Welcoming other viewpoints", "Calibrating confidence"];
+const themeDescriptions = [
+  "What you did when someone questioned an idea or experience you already trusted.",
+  "How you responded when a plan or recommendation ran into new information.",
+  "How much space you made for someone whose experience or taste differed from yours.",
+  "How you balanced checking, deciding, and keeping things moving when the answer was uncertain."
+];
+const themeProfiles = [1, 2, 0, 3];
+const profileReasons = [
+  "That points toward a Bridge Builder: you made room to compare perspectives without needing every difference to become a contest.",
+  "That points toward a Plot-Twist Pilot: you showed a knack for adjusting your route when the situation changed.",
+  "That points toward a Curious Cartographer: you were willing to explore experiences outside your usual map.",
+  "That points toward a Steady Compass: you balanced acting on what you knew with checking what you weren’t sure about."
+];
 let current = 0;
 let picks = Array(rounds.length).fill(null);
 let orders = rounds.map((round) => round.choices.map((_, index) => index));
@@ -136,18 +149,67 @@ function shuffleChoices() {
 
 function calculateResult() {
   const scores = [0, 0, 0, 0];
+  const strongPicks = [0, 0, 0, 0];
   picks.forEach((pick, index) => {
     const domain = Math.floor(index / 3);
-    scores[domain] += rounds[index].choices[pick][1];
+    const points = rounds[index].choices[pick][1];
+    scores[domain] += points;
+    if (points === 2) strongPicks[domain] += 1;
   });
   const best = Math.max(...scores);
-  const topDomains = scores.map((value, index) => value === best ? index : -1).filter((index) => index >= 0);
-  const sum = scores.reduce((total, value) => total + value, 0);
-  const choice = topDomains.length > 1 ? 0 : (topDomains[0] + (sum % 3)) % profiles.length;
-  finalProfile = profiles[choice];
+  let topDomains = scores.map((value, index) => value === best ? index : -1).filter((index) => index >= 0);
+  const topCount = Math.max(...topDomains.map((index) => strongPicks[index]));
+  topDomains = topDomains.filter((index) => strongPicks[index] === topCount);
+  const bestDomain = topDomains[0];
+  finalProfile = profiles[themeProfiles[bestDomain]];
   $("result-icon").textContent = finalProfile.icon;
   $("result-title").textContent = finalProfile.name;
   $("result-copy").textContent = finalProfile.copy;
+
+  const tiedAtTop = scores.filter((value) => value === best).length > 1;
+  const tieNote = tiedAtTop ? " A few themes were neck and neck, so the one with more strong nudges took the lead." : "";
+  $("result-reason").textContent = `Your clearest pattern was “${categories[bestDomain]}” (${scores[bestDomain]} of 6). ${profileReasons[bestDomain]}${tieNote}`;
+
+  const scoreList = $("theme-scores");
+  scoreList.replaceChildren();
+  categories.forEach((category, index) => {
+    const card = document.createElement("article");
+    card.className = `theme-score${index === bestDomain ? " is-leading" : ""}`;
+    const heading = document.createElement("div");
+    heading.className = "theme-score-heading";
+    const title = document.createElement("h4");
+    title.textContent = category;
+    const value = document.createElement("span");
+    value.className = "theme-score-value";
+    value.textContent = `${scores[index]}/6`;
+    heading.append(title, value);
+    const track = document.createElement("div");
+    track.className = "theme-score-track";
+    track.setAttribute("role", "img");
+    track.setAttribute("aria-label", `${category}: ${scores[index]} out of 6`);
+    const fill = document.createElement("span");
+    fill.style.width = `${(scores[index] / 6) * 100}%`;
+    track.append(fill);
+    const note = document.createElement("p");
+    note.textContent = themeDescriptions[index];
+    card.append(heading, track, note);
+    scoreList.append(card);
+  });
+
+  $("evidence-heading").textContent = `Your picks in “${categories[bestDomain]}”`;
+  const evidenceList = $("answer-evidence-list");
+  evidenceList.replaceChildren();
+  for (let index = bestDomain * 3; index < bestDomain * 3 + 3; index++) {
+    const evidence = document.createElement("article");
+    evidence.className = "answer-evidence-item";
+    const group = document.createElement("span");
+    group.className = "evidence-group";
+    group.textContent = rounds[index].group;
+    const answer = document.createElement("p");
+    answer.textContent = rounds[index].choices[picks[index]][0];
+    evidence.append(group, answer);
+    evidenceList.append(evidence);
+  }
   $("share-note").textContent = "";
   show(result);
 }
