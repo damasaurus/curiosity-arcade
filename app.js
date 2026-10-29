@@ -157,7 +157,8 @@ function calculateResult() {
     if (points === 2) strongPicks[domain] += 1;
   });
   const best = Math.max(...scores);
-  let topDomains = scores.map((value, index) => value === best ? index : -1).filter((index) => index >= 0);
+  const scoreLeaders = scores.map((value, index) => value === best ? index : -1).filter((index) => index >= 0);
+  let topDomains = scoreLeaders;
   const topCount = Math.max(...topDomains.map((index) => strongPicks[index]));
   topDomains = topDomains.filter((index) => strongPicks[index] === topCount);
   const bestDomain = topDomains[0];
@@ -166,8 +167,11 @@ function calculateResult() {
   $("result-title").textContent = finalProfile.name;
   $("result-copy").textContent = finalProfile.copy;
 
-  const tiedAtTop = scores.filter((value) => value === best).length > 1;
-  const tieNote = tiedAtTop ? " A few themes were neck and neck, so the one with more strong nudges took the lead." : "";
+  const tieNote = scoreLeaders.length > 1
+    ? (topDomains.length < scoreLeaders.length
+      ? " A few themes were neck and neck, so the one with more strong nudges took the lead."
+      : " A few themes were neck and neck, so the game used the first one in the round order as a playful tie-break.")
+    : "";
   $("result-reason").textContent = `Your clearest pattern was “${categories[bestDomain]}” (${scores[bestDomain]} of 6). ${profileReasons[bestDomain]}${tieNote}`;
 
   const scoreList = $("theme-scores");
